@@ -1,0 +1,25 @@
+{
+  "poll_interval_seconds": 2,
+  "offline_after_seconds": 8,
+  "devices": [
+    {
+      "enabled": true,
+      "driver": "simulation",
+      "machine_code": "M001",
+      "name": "S7-1200 示例设备",
+      "ip": "192.168.1.10",
+      "rack": 0,
+      "slot": 1,
+      "tcp_port": 102,
+      "db_number": 1,
+      "read_start": 0,
+      "read_size": 14,
+      "mapping": {
+        "status_byte": 0,
+        "actual_quantity_dint": 2,
+        "qualified_quantity_dint": 6,
+        "defective_quantity_dint": 10
+      }
+    }
+  ]
+}

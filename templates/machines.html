@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="live-strip">
+  <span class="live-dot"></span><strong>实时采集已启用</strong>
+  <span>刷新周期：2 秒</span><span id="liveMessage">正在读取...</span>
+</div>
+<div class="toolbar"><select id="workshop"><option value="">全部车间</option></select><select id="status"><option value="">全部状态</option><option>运行</option><option>停机</option><option>故障</option></select><input id="search" placeholder="搜索产品名称"></div>
+<div class="card table-wrap"><table><thead><tr><th>设备编号</th><th>设备名称</th><th>所属车间</th><th>设备状态</th><th>连接</th><th>数据来源</th><th>当前产品</th><th>计划产量</th><th>实时产量</th><th>合格品</th><th>报废品</th><th>合格率</th><th>报废率</th><th>采集时间</th></tr></thead><tbody id="body"></tbody></table></div>
+{% endblock %}
+{% block scripts %}<script>
+let machineData=[];
+function draw(){const q=search.value.trim();body.innerHTML=machineData.filter(x=>(!workshop.value||x.workshop_name===workshop.value)&&(!status.value||x.status===status.value)&&(!q||x.current_product.includes(q))).map(x=>`<tr><td>${x.machine_code}</td><td>${x.machine_name}</td><td>${x.workshop_name}</td><td><span class="badge ${badgeClass(x.status)}">${x.status}</span></td><td><span class="connection ${x.connection_status==='在线'?'online':x.connection_status==='离线'?'offline':''}">${x.connection_status}</span>${x.last_error?`<small class="error-tip" title="${x.last_error}">查看错误</small>`:''}</td><td>${x.data_source}</td><td>${x.current_product||'-'}</td><td>${x.planned_quantity}</td><td class="live-number">${x.actual_quantity}</td><td>${x.qualified_quantity}</td><td>${x.defective_quantity}</td><td>${x.quality_rate}%</td><td>${x.defective_rate}%</td><td>${x.collected_at}</td></tr>`).join('')||emptyRow(14)}
+async function refresh(){try{machineData=await getJSON('/api/machines');if(workshop.options.length===1){[...new Set(machineData.map(x=>x.workshop_name))].forEach(x=>workshop.add(new Option(x,x)))}draw();liveMessage.textContent='最近刷新：'+new Date().toLocaleTimeString('zh-CN',{hour12:false})}catch(e){liveMessage.textContent='刷新失败';toast(e.message,'error')}}
+[workshop,status,search].forEach(e=>e.addEventListener('input',draw));refresh();setInterval(refresh,2000);
+</script>{% endblock %}
