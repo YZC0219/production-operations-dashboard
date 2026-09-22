@@ -22,6 +22,18 @@ CREATE TABLE IF NOT EXISTS machine_realtime (
  connection_status TEXT NOT NULL,
  last_error TEXT NOT NULL DEFAULT ''
 );
+CREATE TABLE IF NOT EXISTS users (
+ id INTEGER PRIMARY KEY, username TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL,
+ display_name TEXT NOT NULL, role TEXT NOT NULL CHECK(role IN ('admin','operator','viewer')),
+ enabled INTEGER NOT NULL DEFAULT 1, must_change_password INTEGER NOT NULL DEFAULT 1,
+ created_at TEXT NOT NULL, last_login_at TEXT
+);
+CREATE TABLE IF NOT EXISTS operation_logs (
+ id INTEGER PRIMARY KEY, user_id INTEGER, username TEXT NOT NULL, action TEXT NOT NULL,
+ target_type TEXT NOT NULL, target_id TEXT, detail TEXT NOT NULL DEFAULT '',
+ result TEXT NOT NULL, ip_address TEXT NOT NULL, created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_operation_logs_created_at ON operation_logs(created_at);
 """
 
 def connect():
@@ -45,3 +57,8 @@ def transaction():
 def init_database():
     with transaction() as conn:
         conn.executescript(SCHEMA)
+        from werkzeug.security import generate_password_hash
+        from datetime import datetime
+        if not conn.execute("SELECT 1 FROM users LIMIT 1").fetchone():
+            conn.execute("INSERT INTO users(username,password_hash,display_name,role,enabled,must_change_password,created_at) VALUES(?,?,?,?,1,1,?)",
+                         ("admin",generate_password_hash("Admin@123456"),"系统管理员","admin",datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
