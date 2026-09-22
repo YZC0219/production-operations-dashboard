@@ -16,6 +16,9 @@
 - 关键操作日志、车间/产品/设备主数据维护
 - 设备、生产、计划、订单、库存及审计日志 Excel 导出
 - 数据库在线备份和基础安全检查
+- 网页 PLC 配置中心、TCP 连接测试和多设备管理
+- 实时报警确认/恢复、24 小时设备历史采样和 OEE
+- 每日自动备份、保留周期清理、Waitress 与 Windows 服务部署
 
 ## 技术栈
 
@@ -74,6 +77,61 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 - PLC 采集线程随应用启动，默认每 2 秒采集一次。周期和设备配置位于 `settings/plc_devices.json`。
 - 管理员可在“备份与审计”页面创建 SQLite 一致性备份。浏览器会下载备份文件，服务器副本保存在 `backups/`，该目录不会提交到 Git。
 - 安全检查会提示管理员账户、初始密码、审计记录和数据库备份状态。
+
+## 第三阶段：现场运行功能
+
+### 设备接入配置中心
+
+管理员可在“设备接入配置”页面添加多台 PLC，配置设备编号、IP、驱动、Rack、Slot、TCP 端口、DB 号和读取范围，并测试 TCP 连接。保存后采集线程会自动读取新配置，无需修改源代码。
+
+真实 PLC 使用 `s7` 驱动，试运行使用 `simulation`。设备配置的新增与修改会写入操作日志。
+
+### 实时报警中心
+
+系统会根据采集结果自动生成 PLC 离线和设备故障报警。报警支持“活动、已确认、已恢复”三个状态，管理员和操作员可以填写处理说明并确认；设备恢复后系统自动关闭报警。报警页面每 5 秒刷新。
+
+### 设备历史与 OEE
+
+系统保存最近 90 天的设备采样，OEE 页面显示最近 24 小时指标：
+
+```text
+时间开动率 = 运行采样数 / 全部采样数
+性能开动率 = 实时产量 / 今日计划产量
+质量率 = 合格品数量 / 实际产量
+OEE = 时间开动率 × 性能开动率 × 质量率
+```
+
+示例 OEE 用于试运行验证。正式投产时应结合班次、计划停机和产品标准节拍完善计算口径。
+
+### 自动备份
+
+管理员可在“备份与审计”页面设置每天执行小时和保留天数。后台任务默认每天凌晨 2 点执行，保留 30 天，并自动清理过期备份。备份文件保存在 `backups/`。
+
+## 正式启动与 Windows 服务
+
+日常开发仍可使用 `python app.py`。局域网试运行建议使用 Waitress：
+
+```powershell
+$env:DASHBOARD_SECRET_KEY="请替换为足够长的随机字符串"
+.venv\Scripts\python.exe run_production.py
+```
+
+Waitress 默认监听 `0.0.0.0:5000`，同一局域网的电脑可以通过服务器 IP 访问。开放网络访问前必须配置 Windows 防火墙、可信网段和 HTTPS 反向代理。
+
+安装为 Windows 服务时，以管理员身份打开 PowerShell：
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\scripts\install_service.ps1
+```
+
+服务名称为 `ProductionOperationsDashboard`，启动类型为自动。常用维护命令：
+
+```powershell
+.venv\Scripts\python.exe scripts\windows_service.py stop
+.venv\Scripts\python.exe scripts\windows_service.py start
+.venv\Scripts\python.exe scripts\windows_service.py remove
+```
 
 正式部署前应通过环境变量设置独立的会话密钥：
 

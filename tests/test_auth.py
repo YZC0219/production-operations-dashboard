@@ -26,11 +26,14 @@ def authenticated_admin():
 
 def test_admin_pages_and_services():
     client=authenticated_admin()
-    for path in ["/","/master-data","/reports","/admin","/security"]:
+    for path in ["/","/master-data","/reports","/admin","/security","/device-config","/alarms","/oee"]:
         assert client.get(path).status_code==200
     assert client.get("/api/master-data").status_code==200
     assert client.get("/api/audit-logs").status_code==200
     assert client.get("/api/security-checks").status_code==200
+    assert client.get("/api/device-config").status_code==200
+    assert client.get("/api/alarms").status_code==200
+    assert client.get("/api/oee").status_code==200
 
 def test_export_and_backup():
     client=authenticated_admin()

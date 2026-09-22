@@ -8,6 +8,9 @@ from services.import_service import preview, import_excel, ImportValidationError
 from services.plc_collector import collector, load_settings
 from services.security_service import authenticate,login_user,change_password,require_roles,audit,list_users,save_user
 from services import admin_service as ads
+from services import device_config_service as dcs
+from services import alarm_service as als
+from services.backup_scheduler import scheduler,load_backup_config,save_backup_config,run_backup
 
 app=Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"]=MAX_CONTENT_LENGTH
@@ -15,6 +18,7 @@ app.config["SECRET_KEY"]=SECRET_KEY
 app.config.update(SESSION_COOKIE_HTTPONLY=True,SESSION_COOKIE_SAMESITE="Lax")
 init_database()
 collector.start()
+scheduler.start()
 
 def ok(data=None,message="查询成功"): return jsonify(success=True,message=message,data=data or {})
 def fail(message,status=400): return jsonify(success=False,message=message,data={}),status
@@ -73,6 +77,13 @@ def admin_page(): return render_template("admin.html",active="admin",title="用�
 @app.get("/security")
 @require_roles("admin")
 def security_page(): return render_template("security.html",active="security",title="备份与安全审计")
+@app.get("/device-config")
+@require_roles("admin")
+def device_config_page(): return render_template("device_config.html",active="device_config",title="设备接入配置")
+@app.get("/alarms")
+def alarms_page(): return render_template("alarms.html",active="alarms",title="实时报警中心")
+@app.get("/oee")
+def oee_page(): return render_template("oee.html",active="oee",title="设备运行与 OEE")
 
 @app.get("/api/dashboard/summary")
 def api_summary(): return ok(ds.summary())
@@ -152,6 +163,42 @@ def api_backup():
 @app.get("/api/security-checks")
 @require_roles("admin")
 def api_security_checks(): return ok(ads.security_checks())
+
+@app.get("/api/device-config")
+@require_roles("admin")
+def api_device_config(): return ok(dcs.get_config())
+@app.post("/api/device-config")
+@require_roles("admin")
+def api_device_config_save():
+    try:
+        result=dcs.save_config(request.get_json() or {}); audit("保存设备配置","PLC配置",detail=f"{len(result['devices'])}台设备"); return ok(result,"设备配置已保存。")
+    except Exception as e:return fail(str(e))
+@app.post("/api/device-test")
+@require_roles("admin")
+def api_device_test():
+    data=request.get_json() or {}; result=dcs.test_tcp(data.get("ip",""),data.get("port",102)); audit("测试设备连接","PLC",data.get("ip"),result["message"],"成功" if result["success"] else "失败"); return ok(result,result["message"])
+
+@app.get("/api/alarms")
+def api_alarms(): return ok(als.list_alarms())
+@app.post("/api/alarms/<int:alarm_id>/acknowledge")
+@require_roles("admin","operator")
+def api_alarm_ack(alarm_id):
+    note=(request.get_json() or {}).get("note",""); als.acknowledge(alarm_id,session["username"],note); audit("确认报警","报警",alarm_id,note); return ok(message="报警已确认。")
+@app.get("/api/oee")
+def api_oee(): return ok(als.oee_data())
+
+@app.get("/api/backup-config")
+@require_roles("admin")
+def api_backup_config(): return ok(load_backup_config())
+@app.post("/api/backup-config")
+@require_roles("admin")
+def api_backup_config_save():
+    try:
+        cfg=save_backup_config(request.get_json() or {}); audit("保存自动备份设置","备份配置",detail=str(cfg)); return ok(cfg,"备份设置已保存。")
+    except ValueError as e:return fail(str(e))
+@app.post("/api/backup-run")
+@require_roles("admin")
+def api_backup_run(): run_backup(); audit("执行自动备份","数据库"); return ok(message="备份任务已执行。")
 
 @app.errorhandler(404)
 def not_found(_): return fail("请求的页面或接口不存在。",404)

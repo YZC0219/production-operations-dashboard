@@ -1,0 +1,5 @@
+{
+  "enabled": true,
+  "hour": 2,
+  "retention_days": 30
+}

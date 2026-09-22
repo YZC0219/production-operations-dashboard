@@ -34,6 +34,24 @@ CREATE TABLE IF NOT EXISTS operation_logs (
  result TEXT NOT NULL, ip_address TEXT NOT NULL, created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_operation_logs_created_at ON operation_logs(created_at);
+CREATE TABLE IF NOT EXISTS machine_samples (
+ id INTEGER PRIMARY KEY, machine_code TEXT NOT NULL, status TEXT NOT NULL,
+ actual_quantity INTEGER NOT NULL, qualified_quantity INTEGER NOT NULL,
+ defective_quantity INTEGER NOT NULL, connection_status TEXT NOT NULL, collected_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_machine_samples_code_time ON machine_samples(machine_code,collected_at);
+CREATE TABLE IF NOT EXISTS alarms (
+ id INTEGER PRIMARY KEY, alarm_key TEXT UNIQUE NOT NULL, machine_code TEXT NOT NULL,
+ alarm_type TEXT NOT NULL, level TEXT NOT NULL, message TEXT NOT NULL,
+ status TEXT NOT NULL CHECK(status IN ('活动','已确认','已恢复')),
+ started_at TEXT NOT NULL, acknowledged_at TEXT, acknowledged_by TEXT,
+ recovered_at TEXT, handling_note TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS idx_alarms_status_time ON alarms(status,started_at);
+CREATE TABLE IF NOT EXISTS backup_runs (
+ id INTEGER PRIMARY KEY, filename TEXT NOT NULL, result TEXT NOT NULL,
+ detail TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL
+);
 """
 
 def connect():

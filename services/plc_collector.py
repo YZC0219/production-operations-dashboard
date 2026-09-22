@@ -96,6 +96,11 @@ class PLCCollector:
                  now, source, connection, error))
             conn.execute("UPDATE machines SET status=?,updated_at=? WHERE machine_code=?",
                          (values["status"], now, device["machine_code"]))
+            conn.execute("INSERT INTO machine_samples(machine_code,status,actual_quantity,qualified_quantity,defective_quantity,connection_status,collected_at) VALUES(?,?,?,?,?,?,?)",
+                         (device["machine_code"],values["status"],values["actual_quantity"],values["qualified_quantity"],values["defective_quantity"],connection,now))
+            conn.execute("DELETE FROM machine_samples WHERE collected_at<datetime('now','localtime','-90 days')")
+        from services.alarm_service import evaluate
+        evaluate(device["machine_code"],values["status"],connection,values["fault_code"])
 
     def _save_error(self, device, message):
         previous = {"status":"故障", "actual_quantity":0, "qualified_quantity":0,
